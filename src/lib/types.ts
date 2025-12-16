@@ -194,6 +194,17 @@ export interface OverdueNotificationTimestamp {
 // Type for overdue backup notifications configuration
 export type OverdueNotifications = Record<BackupKey, OverdueNotificationTimestamp>;
 
+// Interface for API Keys (upload authentication)
+export interface ApiKey {
+  id: string;
+  name: string;
+  key: string; // hashed API key
+  created_at: string;
+  last_used_at: string | null;
+  enabled: boolean;
+  description: string;
+}
+
 // Chart data interface for dashboard components
 export interface ChartDataPoint {
   date: string;

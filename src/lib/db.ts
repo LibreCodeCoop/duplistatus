@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import { randomBytes } from 'crypto';
 import { DatabaseMigrator } from './db-migrations';
 import bcrypt from 'bcrypt';
 import { BackupNotificationConfig } from '@/lib/types';
@@ -355,9 +356,9 @@ try {
           isFreshDatabase = true;
           logWithTimestamp('Initializing new database with latest schema (v4.0)...');
     
-          // Import dependencies for initial setup
-          const bcrypt = require('bcrypt');
-          const { randomBytes } = require('crypto');
+          // Use dependencies that are already imported at module level
+          // bcrypt is imported at the top of this file
+          // randomBytes needs to be imported at the top
           
           // CRITICAL: Create db_version table FIRST and set version to 4.0 IMMEDIATELY
           // This prevents other processes from trying to run migrations while we're initializing
@@ -772,7 +773,7 @@ async function ensureDatabaseInitialized() {
       // Check the actual database version before deciding whether to run migrations
       const currentVersion = migrator.getCurrentVersion();
       
-      if (currentVersion === '4.0') {
+      if (currentVersion === '4.1') {
         // Database is at latest version, no migrations needed
         // Only log if we actually created a fresh database
         if (isFreshDatabase) {
@@ -781,7 +782,7 @@ async function ensureDatabaseInitialized() {
       } else if (isFreshDatabase) {
         // Fresh database but version check failed - shouldn't happen, but skip migrations
       } else {
-        // Database exists but is not at version 4.0, run migrations
+        // Database exists but is not at version 4.1, run migrations
         await migrator.runMigrations();
       }
       

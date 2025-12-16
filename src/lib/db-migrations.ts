@@ -886,6 +886,88 @@ const migrations: Migration[] = [
       }
       logMigration('log', 'Sessions table created with nullable user_id to support unauthenticated sessions');
     }
+  },
+  {
+    version: '4.1',
+    description: 'Add API Keys table for upload authentication',
+    up: (db: Database.Database) => {
+      const timestamp = () => new Date().toLocaleString(undefined, { hour12: false, timeZoneName: 'short' }).replace(',', '');
+      const logMigration = (level: 'log' | 'warn', message: string) => {
+        const formatted = `[Migration 4.1] ${timestamp()}: ${message}`;
+        if (level === 'warn') {
+          console.warn(formatted);
+        } else {
+          console.log(formatted);
+        }
+      };
+
+      logMigration('log', 'Adding API Keys table for upload authentication...');
+      
+      // Check if api_keys table already exists
+      const apiKeysTableExists = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='api_keys'"
+      ).get();
+      
+      if (apiKeysTableExists) {
+        throw new Error('MIGRATION_ALREADY_COMPLETED');
+      }
+      
+      // Create api_keys table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS api_keys (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          key_hash TEXT UNIQUE NOT NULL,
+          description TEXT DEFAULT '',
+          enabled BOOLEAN NOT NULL DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          created_by TEXT,
+          last_used_at DATETIME,
+          usage_count INTEGER DEFAULT 0,
+          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        );
+      `);
+      
+      // Create indexes for api_keys table
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_api_keys_enabled ON api_keys(enabled);
+        CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+        CREATE INDEX IF NOT EXISTS idx_api_keys_last_used ON api_keys(last_used_at);
+      `);
+      
+      // Add configuration for requiring API keys (default: disabled for backward compatibility)
+      db.prepare(
+        'INSERT OR REPLACE INTO configurations (key, value) VALUES (?, ?)'
+      ).run(
+        'upload_require_api_key',
+        'false'
+      );
+      
+      // Log the migration in audit log
+      db.prepare(`
+        INSERT INTO audit_log (
+          action, 
+          category, 
+          status, 
+          username,
+          details
+        ) VALUES (?, ?, ?, ?, ?)
+      `).run(
+        'database_migration',
+        'system',
+        'success',
+        'system',
+        JSON.stringify({ 
+          migration: '4.1', 
+          description: 'API Keys for Upload Authentication',
+          tables_created: ['api_keys'],
+          security_note: 'API key authentication is optional (disabled by default) - enable in Security Settings'
+        })
+      );
+      
+      logMigration('log', 'API Keys table created successfully');
+      logMigration('log', 'API key authentication is optional and disabled by default for backward compatibility');
+    }
   }
 ];
 
@@ -983,9 +1065,9 @@ export class DatabaseMigrator {
     try {
       const currentVersion = this.getCurrentVersion();
       
-      // If database is already at the latest version (4.0), skip all migrations
-      // This handles the case where a fresh database was created with version 4.0
-      if (currentVersion === '4.0') {
+      // If database is already at the latest version (4.1), skip all migrations
+      // This handles the case where a fresh database was created with latest version
+      if (currentVersion === '4.1') {
         // Silent - no migrations needed
         return;
       }

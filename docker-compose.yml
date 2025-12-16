@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
       args:
         VERSION: ${VERSION}
-    image: wsj-br/duplistatus:${VERSION}
+    #image: wsjbr/duplistatus:latest
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
     container_name: duplistatus
@@ -17,6 +17,14 @@ services:
       - duplistatus_data:/app/data
     networks:
       - duplistatus_network
+    environment:
+      # IP Whitelist Configuration (optional)
+      # Set ENABLE_ADMIN_IP_WHITELIST=true to enable IP-based access control
+      # Only /api/upload will be publicly accessible, all other routes require whitelisted IPs
+      - ENABLE_ADMIN_IP_WHITELIST=${ENABLE_ADMIN_IP_WHITELIST:-false}
+      # Comma-separated list of allowed IPs (supports CIDR notation: /8, /16, /24)
+      # Example: ADMIN_IP_WHITELIST=192.168.1.100,10.0.0.0/24,172.16.0.0/16
+      - ADMIN_IP_WHITELIST=${ADMIN_IP_WHITELIST:-}
 
 networks:
   duplistatus_network:

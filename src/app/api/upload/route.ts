@@ -7,12 +7,112 @@ import fs from 'fs';
 import path from 'path';
 import { sendBackupNotification, NotificationContext } from '@/lib/notifications';
 import { formatBytes, formatDurationHuman } from '@/lib/utils';
-import { BackupStatus } from '@/lib/types';
+import { BackupStatus, ApiKey } from '@/lib/types';
 import { AuditLogger } from '@/lib/audit-logger';
 import { getClientIpAddress } from '@/lib/ip-utils';
+import bcrypt from 'bcrypt';
 
 export async function POST(request: NextRequest) {
   try {
+    // Get client info early for audit logging
+    const ipAddress = getClientIpAddress(request);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    // Check if API key authentication is required
+    const requireApiKey = db.prepare(
+      'SELECT value FROM configurations WHERE key = ?'
+    ).get('upload_require_api_key') as { value: string } | undefined;
+    
+    if (requireApiKey?.value === 'true') {
+      // Get API key from query parameter or header
+      const url = new URL(request.url);
+      const apiKey = url.searchParams.get('api_key') || 
+                     request.headers.get('x-api-key');
+      
+      if (!apiKey) {
+        await AuditLogger.log({
+          userId: null,
+          username: 'system',
+          action: 'upload_rejected_no_api_key',
+          category: 'system',
+          details: { 
+            ip: ipAddress,
+            user_agent: userAgent,
+            reason: 'No API key provided'
+          },
+          ipAddress,
+          userAgent,
+          status: 'failure'
+        });
+        
+        return NextResponse.json(
+          { error: 'API key required' },
+          { status: 401 }
+        );
+      }
+      
+      // Verify API key
+      const apiKeys = db.prepare(
+        'SELECT id, name, key_hash FROM api_keys WHERE enabled = 1'
+      ).all() as { id: string; name: string; key_hash: string }[];
+      
+      let validKey: { id: string; name: string } | null = null;
+      for (const key of apiKeys) {
+        if (await bcrypt.compare(apiKey, key.key_hash)) {
+          validKey = { id: key.id, name: key.name };
+          break;
+        }
+      }
+      
+      if (!validKey) {
+        await AuditLogger.log({
+          userId: null,
+          username: 'system',
+          action: 'upload_rejected_invalid_api_key',
+          category: 'system',
+          details: { 
+            ip: ipAddress,
+            user_agent: userAgent,
+            attempted_key_prefix: apiKey.substring(0, 8) + '...',
+            reason: 'Invalid or disabled API key'
+          },
+          ipAddress,
+          userAgent,
+          status: 'failure'
+        });
+        
+        return NextResponse.json(
+          { error: 'Invalid API key' },
+          { status: 401 }
+        );
+      }
+      
+      // Update last_used_at and usage_count
+      db.prepare(`
+        UPDATE api_keys 
+        SET last_used_at = CURRENT_TIMESTAMP,
+            usage_count = usage_count + 1
+        WHERE id = ?
+      `).run(validKey.id);
+      
+      // Log successful authentication
+      await AuditLogger.log({
+        userId: null,
+        username: 'system',
+        action: 'upload_authenticated',
+        category: 'system',
+        details: { 
+          api_key_name: validKey.name,
+          api_key_id: validKey.id,
+          ip: ipAddress
+        },
+        ipAddress,
+        userAgent,
+        status: 'success'
+      });
+    }
+    
+    // Continue with existing upload logic
     const data = await request.json();
 
     // Log received data in development mode
@@ -127,10 +227,6 @@ export async function POST(request: NextRequest) {
 
     // Generate backup ID before transaction
     const backupId = uuidv4();
-
-    // Get client info for audit logging
-    const ipAddress = getClientIpAddress(request);
-    const userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Start a transaction
     const transaction = db.transaction(() => {

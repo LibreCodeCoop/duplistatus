@@ -3,7 +3,8 @@
 
 import type { OverallSummary } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { HardDrive, Archive, UploadCloud, Database, FileSearch, AlertTriangle, ChartLine, LayoutDashboard, Sheet, ThumbsUp } from "lucide-react";
+import { HardDrive, Archive, UploadCloud, Database, FileSearch, AlertTriangle, ChartLine, LayoutDashboard, Sheet, ThumbsUp, Key } from "lucide-react";
+import Link from "next/link";
 import { ColoredIcon } from "@/components/ui/colored-icon";
 import { formatBytes } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -121,6 +122,29 @@ export function DashboardSummaryCards({
         ))}
       </div>
       
+      {/* API Keys Card */}
+      <Card variant="modern" hover={true} className="w-fit flex-shrink-0 flex items-center justify-center">
+        <div className="p-3 text-center">
+          <TooltipProvider>
+            <Tooltip delayDuration={1000}>
+              <TooltipTrigger asChild>
+                <Link href="/api-keys-test">
+                  <Button
+                    variant="ghost"
+                    className="h-8 w-8 p-6 [&_svg]:!h-8 [&_svg]:!w-8 text-green-600 hover:text-foreground bg-black-100 backdrop-blur-sm border-white-500 shadow-lg hover:bg-green-900 hover:border-green-600 transition-all duration-200"
+                  >
+                    <Key className="h-6 w-6" />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Manage API Keys</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </Card>
+      
       {/* Toggle View Mode Card */}
       <Card variant="modern" hover={true} className="w-fit flex-shrink-0 flex items-center justify-center">
         <div className="p-3 text-center">
@@ -129,8 +153,7 @@ export function DashboardSummaryCards({
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
-                  // className="h-8 w-8 p-0 hover:bg-transparent "
-                  className="h-8 w-8 p-6  [&_svg]:!h-8 [&_svg]:!w-8 text-blue-600 hover:text-foreground bg-black-100 backdrop-blur-sm border-white-500 text-blue-600 shadow-lg hover:bg-blue-900 hover:border-blue-600 transition-all duration-200"
+                  className="h-8 w-8 p-6 [&_svg]:!h-8 [&_svg]:!w-8 text-blue-600 hover:text-foreground bg-black-100 backdrop-blur-sm border-white-500 text-blue-600 shadow-lg hover:bg-blue-900 hover:border-blue-600 transition-all duration-200"
                   onClick={handleViewModeToggle}
                 >
                   {viewMode === 'analytics' ? (
@@ -152,9 +175,6 @@ export function DashboardSummaryCards({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {/* <div className="text-xs text-muted-foreground mt-2">
-            {viewMode === 'analytics' ? 'Switch to Table' : 'Switch to Analytics'}
-          </div> */}
         </div>
       </Card>
     </div>
