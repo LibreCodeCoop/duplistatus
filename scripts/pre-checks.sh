@@ -10,10 +10,12 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # -----  start of pre-checks  -----
 
-#check if the key file exists
-$SCRIPT_DIR/ensure-key-file.sh
+# Check if the key file exists (skip in Docker build)
+if [ -f "$SCRIPT_DIR/ensure-key-file.sh" ]; then
+  $SCRIPT_DIR/ensure-key-file.sh
+fi
 
-# update the version
+# Update the version
 $SCRIPT_DIR/update-version.sh
 
 # -----  end of pre-checks  -----
