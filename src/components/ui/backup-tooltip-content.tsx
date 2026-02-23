@@ -3,8 +3,13 @@
 import { useRouter } from 'next/navigation';
 import type { BackupStatus, NotificationEvent } from "@/lib/types";
 import { formatRelativeTime, formatBytes, getStatusColor } from "@/lib/utils";
-import { AlertTriangle, Settings, MessageSquareMore, MessageSquareOff } from "lucide-react";
+import { AlertTriangle, Settings, MessageSquareMore, MessageSquareOff, Trash2 } from "lucide-react";
 import { ServerConfigurationButton } from "@/components/ui/server-configuration-button";
+import { useCurrentUser } from "@/hooks/use-current-user";
+import { useToast } from "@/hooks/use-toast";
+import { authenticatedRequestWithRecovery } from "@/lib/client-session-csrf";
+import { useGlobalRefresh } from "@/contexts/global-refresh-context";
+import { useState } from "react";
 
 // Helper function to get notification icon
 function getNotificationIcon(notificationEvent: NotificationEvent | undefined) {
@@ -25,6 +30,7 @@ function getNotificationIcon(notificationEvent: NotificationEvent | undefined) {
 }
 
 interface BackupTooltipContentProps {
+  serverId: string;
   serverAlias?: string;
   serverName: string;
   serverNote?: string;
@@ -44,6 +50,7 @@ interface BackupTooltipContentProps {
 }
 
 export function BackupTooltipContent({
+  serverId,
   serverAlias,
   serverName,
   serverNote,
@@ -62,6 +69,49 @@ export function BackupTooltipContent({
   notificationEvent,
 }: BackupTooltipContentProps) {
   const router = useRouter();
+  const currentUser = useCurrentUser();
+  const { toast } = useToast();
+  const { refreshDashboard } = useGlobalRefresh();
+  const [isDeletingBackupJob, setIsDeletingBackupJob] = useState(false);
+
+  const handleDeleteBackupJob = async () => {
+    if (isDeletingBackupJob) return;
+
+    try {
+      setIsDeletingBackupJob(true);
+
+      const response = await authenticatedRequestWithRecovery('/api/backups/delete-job', {
+        method: 'DELETE',
+        body: JSON.stringify({
+          serverId,
+          backupName,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || 'Failed to delete backup job');
+      }
+
+      toast({
+        title: `Backup job "${backupName}" deleted`,
+        description: result.message || 'Backup job deleted successfully.',
+        duration: 3000,
+      });
+
+      await refreshDashboard();
+      window.dispatchEvent(new CustomEvent('configuration-saved'));
+    } catch (error) {
+      toast({
+        title: `Backup job "${backupName}" deletion failed`,
+        description: error instanceof Error ? error.message : 'Failed to delete backup job.',
+        variant: 'destructive',
+        duration: 3500,
+      });
+    } finally {
+      setIsDeletingBackupJob(false);
+    }
+  };
 
   return (
     <>
@@ -186,7 +236,7 @@ export function BackupTooltipContent({
       
       {/* Configuration buttons - always shown */}
       <div className="border-t pt-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 justify-between">
           <button 
             className="text-xs flex items-center gap-1 hover:text-blue-500 transition-colors px-2 py-1 rounded"
             onClick={(e) => {
@@ -204,10 +254,29 @@ export function BackupTooltipContent({
             serverUrl={serverUrl}
             serverName={serverName}
             serverAlias={serverAlias}
-            showText={true} 
-          />
+              showText={true} 
+            />
+            {currentUser?.isAdmin && (
+              <button
+                className="text-xs flex items-center gap-1 text-red-500 hover:text-red-400 transition-colors px-2 py-1 rounded disabled:opacity-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleDeleteBackupJob();
+                }}
+                disabled={isDeletingBackupJob}
+                title="Delete backup job"
+              >
+                <Trash2 className="h-3 w-3" />
+                <span>{isDeletingBackupJob ? 'Deleting...' : 'Delete routine'}</span>
+              </button>
+            )}
+          </div>
+          {currentUser?.isAdmin && (
+            <div className="text-[10px] text-muted-foreground mt-1 px-2">
+              Deletes all records for this routine on this server.
+            </div>
+          )}
         </div>
-      </div>
     </>
   );
 }

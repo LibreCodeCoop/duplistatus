@@ -173,7 +173,7 @@ const ServerCard = ({ server, isSelected, onSelect }: ServerCardProps) => {
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-2 px-3 pb-3 flex-1 flex flex-col">
+      <CardContent className="space-y-2 px-3 pb-3 flex-1 flex flex-col min-h-0">
         {/* Summary Information - Overview */}
         <div className="grid grid-cols-4 gap-2 text-xs flex-shrink-0 text-center">
           <section className="flex flex-col items-center">
@@ -228,10 +228,10 @@ const ServerCard = ({ server, isSelected, onSelect }: ServerCardProps) => {
         </div>
 
         {/* Backup List - Each backup job on its own row */}
-        <section className="space-y-0.5 flex-1 flex flex-col mt-auto">
+        <section className="space-y-0.5 flex-1 flex flex-col mt-auto min-h-0">
           <h3 className="text-xs text-muted-foreground font-medium">Backups:</h3>
           {server.backupInfo.length > 0 ? (
-            <div className="flex-1 flex flex-col divide-y divide-border/30">
+            <div className="flex-1 flex flex-col divide-y divide-border/30 min-h-0 overflow-y-auto pr-1">
               {server.backupInfo.map((backupJob, index) => (
                 <Tooltip key={index} delayDuration={1000}>
                   <TooltipTrigger asChild>
@@ -291,6 +291,7 @@ const ServerCard = ({ server, isSelected, onSelect }: ServerCardProps) => {
                       }}
                     >
                       <BackupTooltipContent
+                        serverId={server.id}
                         serverAlias={server.alias}
                         serverName={server.name}
                         serverNote={server.note}

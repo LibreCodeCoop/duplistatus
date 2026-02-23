@@ -241,6 +241,7 @@ export function OverviewStatusPanel({ servers, totalBackups }: OverviewStatusPan
                         }}
                       >
                         <BackupTooltipContent
+                          serverId={backup.serverId}
                           serverAlias={backup.serverAlias}
                           serverName={backup.serverName}
                           serverNote={backup.serverNote}
@@ -339,6 +340,7 @@ export function OverviewStatusPanel({ servers, totalBackups }: OverviewStatusPan
                         }}
                       >
                         <BackupTooltipContent
+                          serverId={backup.serverId}
                           serverAlias={backup.serverAlias}
                           serverName={backup.serverName}
                           serverNote={backup.serverNote}
